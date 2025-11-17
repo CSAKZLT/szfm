@@ -20,7 +20,7 @@ Zsoli malac (ksitesó)
 Pepa malac (főhősünk)
 Mama malac (Pepa fiatalabb szülője)
 Papa malac (Pepa idősebb szülője)
-Malac bácsi (Papa malac bátja)
+Malac bácsi (Papa malac bátyja)
 Nagymami (Fiatalabb nagyszülő)
 Nagypapi (Idősebb nagyszülő)
 
