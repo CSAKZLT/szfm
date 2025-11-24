@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Szabadságkezelő – Login / Regisztráció</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            margin-top: 40px;
+            margin-bottom: 150px;
+            background: #ffffff;
+            padding: 24px 32px;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            max-width: 700px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 64px;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        h2 {
+            margin-top: 0;
+            margin-bottom: 12px;
+            font-size: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px 6px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 8px 14px;
+            margin-top: 8px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            align-self: flex-end;
+        }
+
+        .primary-btn {
+            background: #2563eb;
+            color: white;
+        }
+
+        .primary-btn:hover {
+            filter: brightness(1.05);
+        }
+
+        .msg {
+            margin-top: 8px;
+            font-size: 13px;
+            min-height: 18px;
+        }
+
+        .msg.ok {
+            color: #16a34a;
+        }
+
+        .msg.err {
+            color: #dc2626;
+        }
+
+        .pw-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .pw-wrapper input {
+            width: 100%;
+        }
+
+        .toggle-pw {
+            position: absolute;
+            right: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            user-select: none;
+            opacity: 0.6;
+        }
+
+        .toggle-pw:hover {
+            opacity: 1;
+        }
+
+
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- REGISZTRÁCIÓ -->
+    <div>
+        <h2>Regisztráció</h2>
+        <form id="registerForm">
+            <label for="regName">Név</label>
+            <input id="regName" type="text" required>
+
+            <label for="regEmail">Email</label>
+            <input id="regEmail" type="email" required>
+
+            <label for="regPassword">Jelszó</label>
+            <div class="pw-wrapper">
+                <input id="regPassword" type="password" required>
+                <span class="toggle-pw" data-target="regPassword">👁️</span>
+            </div>
+
+            <label for="regTotalVacation">Éves szabadság (nap)</label>
+            <input id="regTotalVacation" type="number" min="0" required>
+
+            <button class="primary-btn" type="submit">Regisztráció</button>
+        </form>
+        <div id="registerMsg" class="msg"></div>
+    </div>
+
+    <!-- LOGIN -->
+    <div>
+        <h2>Bejelentkezés</h2>
+        <form id="loginForm">
+            <label for="loginEmail">Email</label>
+            <input id="loginEmail" type="email" required>
+
+            <label for="loginPassword">Jelszó</label>
+            <div class="pw-wrapper">
+                <input id="loginPassword" type="password" required>
+                <span class="toggle-pw" data-target="loginPassword">👁️</span>
+            </div>
+
+            <button class="primary-btn" type="submit">Login</button>
+        </form>
+        <div id="loginMsg" class="msg"></div>
+    </div>
+
+</div>
+
+<script>
+    const registerForm = document.getElementById('registerForm');
+    const loginForm = document.getElementById('loginForm');
+    const registerMsg = document.getElementById('registerMsg');
+    const loginMsg = document.getElementById('loginMsg');
+
+    // Jelszó show/hide
+    document.querySelectorAll(".toggle-pw").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const input = document.getElementById(btn.dataset.target);
+
+            if (input.type === "password") {
+                input.type = "text";
+                btn.textContent = "🙈";
+            } else {
+                input.type = "password";
+                btn.textContent = "👁️";
+            }
+        });
+    });
+
+    // Regisztráció
+    registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        registerMsg.textContent = '';
+
+        const body = {
+            name: document.getElementById('regName').value,
+            email: document.getElementById('regEmail').value,
+            password: document.getElementById('regPassword').value,
+            total_vacation: parseInt(document.getElementById('regTotalVacation').value, 10)
+        };
+
+        try {
+            const res = await fetch('/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                registerMsg.textContent = data.message || 'Sikeres regisztráció.';
+                registerMsg.className = 'msg ok';
+                registerForm.reset();
+            } else {
+                registerMsg.textContent = data.error || 'Hiba történt a regisztráció során.';
+                registerMsg.className = 'msg err';
+            }
+        } catch (err) {
+            registerMsg.textContent = 'Hálózati hiba.';
+            registerMsg.className = 'msg err';
+        }
+    });
+
+    // Login
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        loginMsg.textContent = '';
+
+        const body = {
+            email: document.getElementById('loginEmail').value,
+            password: document.getElementById('loginPassword').value
+        };
+
+        try {
+            const res = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                loginMsg.textContent = data.message || 'Sikeres bejelentkezés.';
+                loginMsg.className = 'msg ok';
+            } else {
+                loginMsg.textContent = data.error || 'Hibás belépési adatok.';
+                loginMsg.className = 'msg err';
+            }
+        } catch (err) {
+            loginMsg.textContent = 'Hálózati hiba.';
+            loginMsg.className = 'msg err';
+        }
+    });
+</script>
+</body>
+</html>

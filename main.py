@@ -1,5 +1,5 @@
 # app.py
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
@@ -16,6 +16,11 @@ class User(db.Model):
     password = db.Column(db.String(100), nullable=False)
     total_vacation = db.Column(db.Integer, nullable=False)
     used_vacation = db.Column(db.Integer, default=0)
+
+# Front-end route
+@app.route("/")
+def index():
+    return render_template("index.html")
 
 # Registration
 @app.route('/register', methods=['POST'])
