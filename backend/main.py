@@ -61,6 +61,7 @@ def register():
     db.session.commit()
     return jsonify({"message": "User registered successfully"}), 201
 
+
 # Login
 @app.route('/login', methods=['POST'])
 def login():
@@ -69,6 +70,43 @@ def login():
     if user:
         return jsonify({"message": "Login successful"}), 200
     return jsonify({"error": "Invalid credentials"}), 401
+
+# Szabadságok lekérése
+@app.route('/vacations', methods=['GET'])
+def user_vacations():
+    email = request.args.get('email')
+    user = AppUser.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    vacations = VacationEntry.query.filter_by(user_id=user.id).all()
+    used_days = sum(v.days for v in vacations)
+    vacation_list = [{"id": v.id, "vacation_date": v.vacation_date.isoformat(), "days": v.days} for v in vacations]
+    return jsonify({
+        "base_vacation_days": user.base_vacation_days,
+        "used_vacation_days": used_days,
+        "available_vacation_days": user.base_vacation_days - used_days,
+        "vacations": vacation_list
+    })
+
+# Új szabadság hozzáadása
+@app.route('/vacations', methods=['POST'])
+def add_vacation():
+    data = request.json
+    user = AppUser.query.filter_by(email=data['email']).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    vacations = VacationEntry.query.filter_by(user_id=user.id).all()
+    used_days = sum(v.days for v in vacations)
+    if used_days + data['days'] > user.base_vacation_days:
+        return jsonify({"error": "Not enough vacation days available"}), 400
+    vacation = VacationEntry(
+        user_id=user.id,
+        vacation_date=datetime.strptime(data['vacation_date'], '%Y-%m-%d').date(),
+        days=data['days']
+    )
+    db.session.add(vacation)
+    db.session.commit()
+    return jsonify({"message": "Vacation added successfully"}), 201
 
 # Szabadság törlése
 @app.route('/vacations/<int:vacation_id>', methods=['DELETE'])
@@ -79,6 +117,38 @@ def delete_vacation(vacation_id):
     db.session.delete(vacation)
     db.session.commit()
     return jsonify({"message": "Vacation deleted successfully"}), 200
+
+# Szabadság módosítása
+@app.route('/vacations/<int:vacation_id>', methods=['PUT'])
+def modify_vacation(vacation_id):
+    data = request.json
+    vacation = VacationEntry.query.get(vacation_id)
+    if not vacation:
+        return jsonify({"error": "Vacation not found"}), 404
+
+    user = AppUser.query.get(vacation.user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Lekérjük az összes szabadságot, kivéve a módosítandót
+    other_vacations = VacationEntry.query.filter(
+        VacationEntry.user_id == user.id,
+        VacationEntry.id != vacation_id
+    ).all()
+    used_days = sum(v.days for v in other_vacations)
+
+    # Új napok ellenőrzése
+    new_days = data.get('days', vacation.days)
+    if used_days + new_days > user.base_vacation_days:
+        return jsonify({"error": "Not enough vacation days available"}), 400
+
+    # Frissítés
+    if 'vacation_date' in data:
+        vacation.vacation_date = datetime.strptime(data['vacation_date'], '%Y-%m-%d').date()
+    vacation.days = new_days
+
+    db.session.commit()
+    return jsonify({"message": "Vacation modified successfully"}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
