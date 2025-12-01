@@ -1,8 +1,8 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='../templates')
 
 # PostgreSQL kapcsolat Neon DB-vel
 app.config['SQLALCHEMY_DATABASE_URI'] = (
@@ -37,6 +37,11 @@ class VacationEntry(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
 
 # --- ENDPOINTOK ---
+
+# Index.html
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 # Regisztráció
 @app.route('/register', methods=['POST'])

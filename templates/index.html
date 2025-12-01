@@ -8,16 +8,14 @@
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             background: #f4f4f4;
             margin: 0;
-            padding: 0;
+            padding: 24px 0;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
             min-height: 100vh;
         }
 
         .container {
-            margin-top: 40px;
-            margin-bottom: 150px;
             background: #ffffff;
             padding: 24px 32px;
             border-radius: 12px;
@@ -39,6 +37,12 @@
             margin-top: 0;
             margin-bottom: 12px;
             font-size: 20px;
+        }
+
+        h3 {
+            margin-top: 16px;
+            margin-bottom: 8px;
+            font-size: 16px;
         }
 
         label {
@@ -73,6 +77,23 @@
 
         .primary-btn:hover {
             filter: brightness(1.05);
+        }
+
+        .secondary-btn {
+            background: #e5e7eb;
+        }
+
+        .secondary-btn:hover {
+            filter: brightness(0.97);
+        }
+
+        .danger-btn {
+            background: #dc2626;
+            color: #ffffff;
+        }
+
+        .danger-btn:hover {
+            filter: brightness(0.95);
         }
 
         .msg {
@@ -112,10 +133,104 @@
             opacity: 1;
         }
 
+        .divider {
+            border: none;
+            border-top: 1px solid #ddd;
+            margin: 24px 0 16px;
+            width: 100%;
+            max-width: 700px;
+        }
 
+        .vacation-container {
+            background: #ffffff;
+            padding: 24px 32px;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            max-width: 700px;
+            width: 100%;
+            margin-bottom: 40px;
+            transition: opacity 0.2s ease;
+        }
+
+        /* kezdetben letiltva */
+        .vacation-container.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .vacation-container.disabled * {
+            cursor: not-allowed;
+        }
+
+        .vacation-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 12px;
+        }
+
+        .vacation-controls button {
+            align-self: flex-start;
+            margin-top: 4px;
+        }
+
+        .vacation-container input {
+            max-width: 260px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            font-size: 14px;
+        }
+
+        th, td {
+            border-bottom: 1px solid #eee;
+            padding: 6px 4px;
+            text-align: left;
+        }
+
+        th {
+            font-weight: 600;
+            background: #f9fafb;
+        }
+
+        td.actions {
+            white-space: nowrap;
+        }
+
+        td.actions button {
+            align-self: auto;
+            margin-right: 4px;
+        }
+
+        /* Kiemelt összegző box a szabadságnál */
+        .vacation-summary {
+            margin-top: 8px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #eef2ff;
+            font-size: 15px;
+            font-weight: 500;
+            border-left: 4px solid #4f46e5;
+        }
+
+        .vacation-summary.ok {
+            color: #166534;
+            background: #ecfdf3;
+            border-left-color: #16a34a;
+        }
+
+        .vacation-summary.err {
+            color: #b91c1c;
+            background: #fef2f2;
+            border-left-color: #ef4444;
+        }
     </style>
 </head>
 <body>
+
 <div class="container">
 
     <!-- REGISZTRÁCIÓ -->
@@ -162,11 +277,72 @@
 
 </div>
 
+<hr class="divider">
+
+<!-- kezdetben disabled -->
+<div class="vacation-container disabled" id="vacationContainer">
+    <h2>Szabadságok kezelése</h2>
+
+    <div class="vacation-controls">
+        <label for="vacEmail">Felhasználó emailje (szabadságokhoz)</label>
+        <input id="vacEmail" type="email" placeholder="pl. valaki@example.com">
+        <button id="loadVacationsBtn" class="primary-btn" type="button">Szabadságok lekérése</button>
+        <div id="vacationSummary" class="vacation-summary"></div>
+    </div>
+
+    <div class="add-vacation">
+        <h3>Új szabadság felvétele</h3>
+        <label for="newVacDate">Dátum</label>
+        <input id="newVacDate" type="date">
+
+        <label for="newVacDays">Napok száma</label>
+        <input id="newVacDays" type="number" min="1" value="1">
+
+        <button id="addVacationBtn" class="primary-btn" type="button">Szabadság hozzáadása</button>
+        <div id="addVacMsg" class="msg"></div>
+    </div>
+
+    <div class="vacation-list">
+        <h3>Felvett szabadságok</h3>
+        <table>
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Dátum</th>
+                <th>Napok</th>
+                <th>Műveletek</th>
+            </tr>
+            </thead>
+            <tbody id="vacationsTableBody">
+            <!-- ide épülnek a sorok JS-ből -->
+            </tbody>
+        </table>
+        <div id="vacListMsg" class="msg"></div>
+    </div>
+</div>
+
 <script>
     const registerForm = document.getElementById('registerForm');
     const loginForm = document.getElementById('loginForm');
     const registerMsg = document.getElementById('registerMsg');
     const loginMsg = document.getElementById('loginMsg');
+
+    // Vacation section elems
+    const vacationContainer = document.getElementById('vacationContainer');
+    const vacEmailInput = document.getElementById('vacEmail');
+    const loadVacationsBtn = document.getElementById('loadVacationsBtn');
+    const vacationSummary = document.getElementById('vacationSummary');
+    const vacationsTableBody = document.getElementById('vacationsTableBody');
+    const addVacationBtn = document.getElementById('addVacationBtn');
+    const newVacDateInput = document.getElementById('newVacDate');
+    const newVacDaysInput = document.getElementById('newVacDays');
+    const addVacMsg = document.getElementById('addVacMsg');
+    const vacListMsg = document.getElementById('vacListMsg');
+
+    // szabadság rész engedélyezése
+    function enableVacationSection() {
+        vacationContainer.classList.remove('disabled');
+    }
 
     // Jelszó show/hide
     document.querySelectorAll(".toggle-pw").forEach(btn => {
@@ -189,10 +365,10 @@
         registerMsg.textContent = '';
 
         const body = {
-            name: document.getElementById('regName').value,
+            full_name: document.getElementById('regName').value,
             email: document.getElementById('regEmail').value,
-            password: document.getElementById('regPassword').value,
-            total_vacation: parseInt(document.getElementById('regTotalVacation').value, 10)
+            password_hash: document.getElementById('regPassword').value,
+            base_vacation_days: parseInt(document.getElementById('regTotalVacation').value, 10)
         };
 
         try {
@@ -207,6 +383,9 @@
                 registerMsg.textContent = data.message || 'Sikeres regisztráció.';
                 registerMsg.className = 'msg ok';
                 registerForm.reset();
+
+                // sikeres regisztráció után engedélyezés
+                enableVacationSection();
             } else {
                 registerMsg.textContent = data.error || 'Hiba történt a regisztráció során.';
                 registerMsg.className = 'msg err';
@@ -224,7 +403,7 @@
 
         const body = {
             email: document.getElementById('loginEmail').value,
-            password: document.getElementById('loginPassword').value
+            password_hash: document.getElementById('loginPassword').value
         };
 
         try {
@@ -238,6 +417,9 @@
             if (res.ok) {
                 loginMsg.textContent = data.message || 'Sikeres bejelentkezés.';
                 loginMsg.className = 'msg ok';
+
+                // sikeres login után engedélyezés
+                enableVacationSection();
             } else {
                 loginMsg.textContent = data.error || 'Hibás belépési adatok.';
                 loginMsg.className = 'msg err';
@@ -245,6 +427,203 @@
         } catch (err) {
             loginMsg.textContent = 'Hálózati hiba.';
             loginMsg.className = 'msg err';
+        }
+    });
+
+    // ---- SZABADSÁGOK KEZELÉSE ----
+
+    async function loadVacations(email) {
+        if (!email) {
+            vacationSummary.textContent = 'Adj meg egy email címet!';
+            vacationSummary.className = 'vacation-summary err';
+            return;
+        }
+        vacationSummary.textContent = 'Betöltés...';
+        vacationSummary.className = 'vacation-summary';
+
+        try {
+            const res = await fetch('/vacations?email=' + encodeURIComponent(email));
+            const data = await res.json();
+
+            if (!res.ok) {
+                vacationSummary.textContent = data.error || 'Hiba a lekérés során.';
+                vacationSummary.className = 'vacation-summary err';
+                vacationsTableBody.innerHTML = '';
+                vacListMsg.textContent = '';
+                return;
+            }
+
+            vacationSummary.textContent =
+                `Alap: ${data.base_vacation_days} nap, ` +
+                `felhasznált: ${data.used_vacation_days} nap, ` +
+                `elérhető: ${data.available_vacation_days} nap`;
+            vacationSummary.className = 'vacation-summary ok';
+
+            vacationsTableBody.innerHTML = '';
+            data.vacations.forEach(v => {
+                const tr = document.createElement('tr');
+                tr.dataset.id = v.id;
+
+                const tdId = document.createElement('td');
+                tdId.textContent = v.id;
+
+                const tdDate = document.createElement('td');
+                tdDate.textContent = v.vacation_date;
+
+                const tdDays = document.createElement('td');
+                tdDays.textContent = v.days;
+
+                const tdActions = document.createElement('td');
+                tdActions.classList.add('actions');
+
+                const editBtn = document.createElement('button');
+                editBtn.type = 'button';
+                editBtn.textContent = 'Módosítás';
+                editBtn.className = 'secondary-btn edit-vac';
+
+                const delBtn = document.createElement('button');
+                delBtn.type = 'button';
+                delBtn.textContent = 'Törlés';
+                delBtn.className = 'danger-btn delete-vac';
+
+                tdActions.appendChild(editBtn);
+                tdActions.appendChild(delBtn);
+
+                tr.appendChild(tdId);
+                tr.appendChild(tdDate);
+                tr.appendChild(tdDays);
+                tr.appendChild(tdActions);
+
+                vacationsTableBody.appendChild(tr);
+            });
+
+            vacListMsg.textContent = data.vacations.length === 0
+                ? 'Még nincs felvett szabadság.'
+                : '';
+            vacListMsg.className = 'msg';
+
+        } catch (err) {
+            vacationSummary.textContent = 'Hálózati hiba a lekérés során.';
+            vacationSummary.className = 'vacation-summary err';
+        }
+    }
+
+    loadVacationsBtn.addEventListener('click', () => {
+        const email = vacEmailInput.value.trim();
+        loadVacations(email);
+    });
+
+    // Új szabadság hozzáadása
+    addVacationBtn.addEventListener('click', async () => {
+        addVacMsg.textContent = '';
+        const email = vacEmailInput.value.trim();
+        const date = newVacDateInput.value;
+        const days = parseInt(newVacDaysInput.value, 10);
+
+        if (!email || !date || !days || days <= 0) {
+            addVacMsg.textContent = 'Adj meg emailt, dátumot és érvényes nap számot.';
+            addVacMsg.className = 'msg err';
+            return;
+        }
+
+        try {
+            const res = await fetch('/vacations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: email,
+                    vacation_date: date,
+                    days: days
+                })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                addVacMsg.textContent = data.error || 'Hiba a mentés során.';
+                addVacMsg.className = 'msg err';
+                return;
+            }
+
+            addVacMsg.textContent = data.message || 'Szabadság sikeresen hozzáadva.';
+            addVacMsg.className = 'msg ok';
+
+            loadVacations(email);
+
+        } catch (err) {
+            addVacMsg.textContent = 'Hálózati hiba a mentés során.';
+            addVacMsg.className = 'msg err';
+        }
+    });
+
+    // Táblázat: módosítás / törlés
+    vacationsTableBody.addEventListener('click', async (e) => {
+        const target = e.target;
+        const row = target.closest('tr');
+        if (!row) return;
+
+        const id = row.dataset.id;
+        const email = vacEmailInput.value.trim();
+
+        // törlés
+        if (target.classList.contains('delete-vac')) {
+            const ok = confirm(`Biztosan törlöd a(z) #${id} szabadságot?`);
+            if (!ok) return;
+
+            try {
+                const res = await fetch('/vacations/' + id, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    vacListMsg.textContent = data.error || 'Hiba törlés közben.';
+                    vacListMsg.className = 'msg err';
+                    return;
+                }
+
+                vacListMsg.textContent = data.message || 'Szabadság törölve.';
+                vacListMsg.className = 'msg ok';
+                loadVacations(email);
+            } catch (err) {
+                vacListMsg.textContent = 'Hálózati hiba törlés közben.';
+                vacListMsg.className = 'msg err';
+            }
+        }
+
+        // módosítás (napok száma)
+        if (target.classList.contains('edit-vac')) {
+            const currentDays = row.children[2].textContent;
+            const newDaysStr = prompt('Új napok száma:', currentDays);
+            if (newDaysStr === null) return;
+
+            const newDays = parseInt(newDaysStr, 10);
+            if (!newDays || newDays <= 0) {
+                alert('Érvényes nap számot adj meg!');
+                return;
+            }
+
+            try {
+                const res = await fetch('/vacations/' + id, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ days: newDays })
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    vacListMsg.textContent = data.error || 'Hiba módosítás közben.';
+                    vacListMsg.className = 'msg err';
+                    return;
+                }
+
+                vacListMsg.textContent = data.message || 'Szabadság módosítva.';
+                vacListMsg.className = 'msg ok';
+                loadVacations(email);
+            } catch (err) {
+                vacListMsg.textContent = 'Hálózati hiba módosítás közben.';
+                vacListMsg.className = 'msg err';
+            }
         }
     });
 </script>
