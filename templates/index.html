@@ -2,7 +2,7 @@
 <html lang="hu">
 <head>
     <meta charset="UTF-8">
-    <title>Szabadságkezelő – Login / Regisztráció</title>
+    <title>Szabadságkezelő – Bejelentkezés / Regisztráció</title>
     <style>
         body {
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -240,7 +240,7 @@
             <label for="regName">Név</label>
             <input id="regName" type="text" required>
 
-            <label for="regEmail">Email</label>
+            <label for="regEmail">E-mail cím</label>
             <input id="regEmail" type="email" required>
 
             <label for="regPassword">Jelszó</label>
@@ -257,11 +257,11 @@
         <div id="registerMsg" class="msg"></div>
     </div>
 
-    <!-- LOGIN -->
+    <!-- BEJELENTKEZÉS -->
     <div>
         <h2>Bejelentkezés</h2>
         <form id="loginForm">
-            <label for="loginEmail">Email</label>
+            <label for="loginEmail">E-mail cím</label>
             <input id="loginEmail" type="email" required>
 
             <label for="loginPassword">Jelszó</label>
@@ -270,7 +270,7 @@
                 <span class="toggle-pw" data-target="loginPassword">👁️</span>
             </div>
 
-            <button class="primary-btn" type="submit">Login</button>
+            <button class="primary-btn" type="submit">Bejelentkezés</button>
         </form>
         <div id="loginMsg" class="msg"></div>
     </div>
@@ -284,7 +284,7 @@
     <h2>Szabadságok kezelése</h2>
 
     <div class="vacation-controls">
-        <label for="vacEmail">Felhasználó emailje (szabadságokhoz)</label>
+        <label for="vacEmail">Felhasználó e-mail címe (szabadságokhoz)</label>
         <input id="vacEmail" type="email" placeholder="pl. valaki@example.com">
         <button id="loadVacationsBtn" class="primary-btn" type="button">Szabadságok lekérése</button>
         <div id="vacationSummary" class="vacation-summary"></div>
@@ -307,14 +307,14 @@
         <table>
             <thead>
             <tr>
-                <th>ID</th>
+                <th>Azonosító</th>
                 <th>Dátum</th>
                 <th>Napok</th>
                 <th>Műveletek</th>
             </tr>
             </thead>
             <tbody id="vacationsTableBody">
-            <!-- ide épülnek a sorok JS-ből -->
+            <!-- ide épülnek a sorok JavaScriptből -->
             </tbody>
         </table>
         <div id="vacListMsg" class="msg"></div>
@@ -327,7 +327,7 @@
     const registerMsg = document.getElementById('registerMsg');
     const loginMsg = document.getElementById('loginMsg');
 
-    // Vacation section elems
+    // Szabadság szekció elemei
     const vacationContainer = document.getElementById('vacationContainer');
     const vacEmailInput = document.getElementById('vacEmail');
     const loadVacationsBtn = document.getElementById('loadVacationsBtn');
@@ -339,12 +339,20 @@
     const addVacMsg = document.getElementById('addVacMsg');
     const vacListMsg = document.getElementById('vacListMsg');
 
-    // szabadság rész engedélyezése
+    // Aktuálisan bejelentkezett / regisztrált felhasználó e-mail címe
+    let currentUserEmail = '';
+
+    function setCurrentUserEmail(email) {
+        currentUserEmail = email || '';
+        vacEmailInput.value = currentUserEmail;
+    }
+
+    // Szabadság rész engedélyezése
     function enableVacationSection() {
         vacationContainer.classList.remove('disabled');
     }
 
-    // Jelszó show/hide
+    // Jelszó mutatása/elrejtése
     document.querySelectorAll(".toggle-pw").forEach(btn => {
         btn.addEventListener("click", () => {
             const input = document.getElementById(btn.dataset.target);
@@ -364,11 +372,16 @@
         e.preventDefault();
         registerMsg.textContent = '';
 
+        const fullName = document.getElementById('regName').value;
+        const email = document.getElementById('regEmail').value;
+        const password = document.getElementById('regPassword').value;
+        const baseDays = parseInt(document.getElementById('regTotalVacation').value, 10);
+
         const body = {
-            full_name: document.getElementById('regName').value,
-            email: document.getElementById('regEmail').value,
-            password_hash: document.getElementById('regPassword').value,
-            base_vacation_days: parseInt(document.getElementById('regTotalVacation').value, 10)
+            full_name: fullName,
+            email: email,
+            password_hash: password,
+            base_vacation_days: baseDays
         };
 
         try {
@@ -382,28 +395,33 @@
             if (res.ok) {
                 registerMsg.textContent = data.message || 'Sikeres regisztráció.';
                 registerMsg.className = 'msg ok';
-                registerForm.reset();
 
-                // sikeres regisztráció után engedélyezés
+                // e-mail eltárolása és szabadság szekció engedélyezése
+                setCurrentUserEmail(email);
                 enableVacationSection();
+
+                registerForm.reset();
             } else {
                 registerMsg.textContent = data.error || 'Hiba történt a regisztráció során.';
                 registerMsg.className = 'msg err';
             }
         } catch (err) {
-            registerMsg.textContent = 'Hálózati hiba.';
+            registerMsg.textContent = 'Hálózati hiba a regisztráció során.';
             registerMsg.className = 'msg err';
         }
     });
 
-    // Login
+    // Bejelentkezés
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         loginMsg.textContent = '';
 
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+
         const body = {
-            email: document.getElementById('loginEmail').value,
-            password_hash: document.getElementById('loginPassword').value
+            email: email,
+            password_hash: password
         };
 
         try {
@@ -418,14 +436,15 @@
                 loginMsg.textContent = data.message || 'Sikeres bejelentkezés.';
                 loginMsg.className = 'msg ok';
 
-                // sikeres login után engedélyezés
+                // e-mail eltárolása és szabadság szekció engedélyezése
+                setCurrentUserEmail(email);
                 enableVacationSection();
             } else {
-                loginMsg.textContent = data.error || 'Hibás belépési adatok.';
+                loginMsg.textContent = data.error || 'Hibás bejelentkezési adatok.';
                 loginMsg.className = 'msg err';
             }
         } catch (err) {
-            loginMsg.textContent = 'Hálózati hiba.';
+            loginMsg.textContent = 'Hálózati hiba a bejelentkezés során.';
             loginMsg.className = 'msg err';
         }
     });
@@ -434,7 +453,7 @@
 
     async function loadVacations(email) {
         if (!email) {
-            vacationSummary.textContent = 'Adj meg egy email címet!';
+            vacationSummary.textContent = 'Adj meg egy e-mail címet!';
             vacationSummary.className = 'vacation-summary err';
             return;
         }
@@ -446,7 +465,7 @@
             const data = await res.json();
 
             if (!res.ok) {
-                vacationSummary.textContent = data.error || 'Hiba a lekérés során.';
+                vacationSummary.textContent = data.error || 'Hiba történt a szabadságok lekérése során.';
                 vacationSummary.className = 'vacation-summary err';
                 vacationsTableBody.innerHTML = '';
                 vacListMsg.textContent = '';
@@ -503,7 +522,7 @@
             vacListMsg.className = 'msg';
 
         } catch (err) {
-            vacationSummary.textContent = 'Hálózati hiba a lekérés során.';
+            vacationSummary.textContent = 'Hálózati hiba a szabadságok lekérése során.';
             vacationSummary.className = 'vacation-summary err';
         }
     }
@@ -521,7 +540,7 @@
         const days = parseInt(newVacDaysInput.value, 10);
 
         if (!email || !date || !days || days <= 0) {
-            addVacMsg.textContent = 'Adj meg emailt, dátumot és érvényes nap számot.';
+            addVacMsg.textContent = 'Adj meg e-mail címet, dátumot és érvényes nap számot.';
             addVacMsg.className = 'msg err';
             return;
         }
@@ -540,7 +559,7 @@
             const data = await res.json();
 
             if (!res.ok) {
-                addVacMsg.textContent = data.error || 'Hiba a mentés során.';
+                addVacMsg.textContent = data.error || 'Hiba történt a szabadság mentése során.';
                 addVacMsg.className = 'msg err';
                 return;
             }
@@ -551,7 +570,7 @@
             loadVacations(email);
 
         } catch (err) {
-            addVacMsg.textContent = 'Hálózati hiba a mentés során.';
+            addVacMsg.textContent = 'Hálózati hiba a szabadság mentése során.';
             addVacMsg.className = 'msg err';
         }
     });
@@ -577,7 +596,7 @@
                 const data = await res.json();
 
                 if (!res.ok) {
-                    vacListMsg.textContent = data.error || 'Hiba törlés közben.';
+                    vacListMsg.textContent = data.error || 'Hiba történt törlés közben.';
                     vacListMsg.className = 'msg err';
                     return;
                 }
@@ -612,7 +631,7 @@
                 const data = await res.json();
 
                 if (!res.ok) {
-                    vacListMsg.textContent = data.error || 'Hiba módosítás közben.';
+                    vacListMsg.textContent = data.error || 'Hiba történt módosítás közben.';
                     vacListMsg.className = 'msg err';
                     return;
                 }
