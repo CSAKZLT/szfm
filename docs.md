@@ -70,3 +70,95 @@ Ez a rész egy külön kártyában jelenik meg, alapértelmezetten letiltva. Sik
 A „Szabadságok lekérése” gomb (loadVacationsBtn) a loadVacations(email) függvényt hívja. A státuszdoboz zöld (.ok) vagy piros (.err) állapotban jelenik meg attól függően, hogy sikeres volt-e a lekérés.
 
 Az „Új szabadság felvétele” blokkban a szabadság kezdődátumát és a napok számét kell megadni. A „Szabadság hozzáadása” gomb ellenőrzi, hogy van-e e-mail, dátum és  érvényes nap szám. A táblázat minden sorát lehet módosítani és törölni.
+
+---
+
+# Backend
+A backend Flask Python keretrendszerrel valósul meg (main.py), amely REST API-t biztosít a frontendnek. Az alkalmazás PostgreSQL adatbázissal kommunikál a Neon DB szolgáltatáson keresztül.
+
+### Technológiai stack
+- **Keretrendszer**: Flask
+- **ORM**: Flask-SQLAlchemy
+- **Adatbázis**: PostgreSQL (Neon DB)
+- **Adatformátum**: JSON
+
+### API Endpointok
+
+#### POST /register
+**Leírás**: Új felhasználó regisztrálása.
+**Kérés formátuma**:
+```json
+{
+  "email": "user@example.com",
+  "password_hash": "hashed_password",
+  "full_name": "John Doe",
+  "base_vacation_days": 20
+}
+```
+
+#### POST /login
+**Leírás**: Felhasználó bejelentkezése.
+**Kérés formátuma**:
+```json
+{
+  "email": "user@example.com",
+  "password_hash": "hashed_password"
+}
+```
+
+#### GET /vacations
+**Leírás**: A felhasználó szabadságainak lekérése.
+**Paraméterek**: `email` (query paraméter)
+**Válasz formátuma**:
+```json
+{
+  "base_vacation_days": 20,
+  "used_vacation_days": 5,
+  "available_vacation_days": 15,
+  "vacations": [
+    {
+      "id": 1,
+      "vacation_date": "2025-12-20",
+      "days": 5
+    }
+  ]
+}
+```
+
+#### POST /vacations
+**Leírás**: Új szabadság hozzáadása a felhasználó számára.
+**Kérés formátuma**:
+```json
+{
+  "email": "user@example.com",
+  "vacation_date": "2025-12-20",
+  "days": 5
+}
+```
+
+#### PUT /vacations/<vacation_id>
+**Leírás**: Meglévő szabadság módosítása.
+**Kérés formátuma**:
+```json
+{
+  "vacation_date": "2025-12-25",
+  "days": 3
+}
+```
+
+#### DELETE /vacations/<vacation_id>
+**Leírás**: Szabadság törlése.
+
+### Funkciók
+
+**Regisztráció kezelése**
+Az új felhasználó regisztrálásakor az alkalmazás automatikusan egy egyedi kulcsot (UKEY-001, UKEY-002, stb.) generál, amely egyedi azonosítóként szolgál a felhasználó számára. Az e-mail cím egyedi, így egy e-mail címmel nem lehet többször regisztrálni.
+
+**Bejelentkezés kezelése**
+A bejelentkezés során az alkalmazás az e-mail és jelszó hash alapján keresi meg a felhasználót az adatbázisban. Ha találat van, a bejelentkezés sikeres.
+
+**Szabadságnapok ellenőrzése**
+A szabadság hozzáadásakor és módosításakor az alkalmazás automatikusan ellenőrzi, hogy az összes igénybevett szabadságnap nem haladja-e meg az alapadagot. A logika az összes meglévő szabadság napjait összegzi, és hozzáadja az új napokat az ellenőrzéshez. Módosításkor az éppen módosított szabadságot kihagyja az összegeléséből.
+
+**Szabadságok nyilvántartása**
+Minden szabadság bevételezésekor rögzítésre kerül a kezdő dátum és az igénybe vett napok száma. Az adatok tartósan tárolódnak az adatbázisban, így később lekérdezhetők és módosíthatók.
