@@ -1,20 +1,28 @@
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+import os
 
 app = Flask(__name__, template_folder='../templates')
 
-# PostgreSQL kapcsolat Neon DB-vel
-app.config['SQLALCHEMY_DATABASE_URI'] = (
-    'postgresql+psycopg2://neondb_owner:npg_jJo5RHZvQhd3@'
-    'ep-winter-flower-ag0v0vhc-pooler.c-2.eu-central-1.aws.neon.tech/neondb'
-)
-# app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://username:password@servername/dbname'
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'connect_args': {'sslmode': 'require'}
-}
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+#   Módosított DB csatlakozás tesztek futtatásához
 
+if os.environ.get('FLASK_ENV') == 'testing':
+    print('TESTING MODE')
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+else:
+    print('PRODUCTION MODE')
+    # PostgreSQL kapcsolat Neon DB-vel
+    app.config['SQLALCHEMY_DATABASE_URI'] = (
+        'postgresql+psycopg2://neondb_owner:npg_jJo5RHZvQhd3@'
+        'ep-winter-flower-ag0v0vhc-pooler.c-2.eu-central-1.aws.neon.tech/neondb'
+    )
+    # app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://username:password@servername/dbname'
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+     'connect_args': {'sslmode': 'require'}
+    }
+
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 # --- MODELL DEFINÍCIÓK ---
