@@ -216,3 +216,219 @@ A 'TestVacationApp' osztály az alábbi funkciókat ellenőrzi:
 - **Path Setup:** A 'test.py' elején található **sys.path.append** biztosítja, hogy a teszt megtalálja a **main.py**-t, még akkor is, ha a könyvtárszerkezet vagy a futtatási hely eltérő.
 
 ---
+
+# Database
+
+A szabadságkezelő rendszer adatainak tárolása **Neon PostgreSQL** adatbázisban történik.  
+A cél egy biztonságos, online elérhető, fejlesztői csapat által közösen használható adatbázis, amely a backend alkalmazás számára REST API hívásokhoz szükséges adatokat szolgáltatja.
+
+## Adatbázis Kapcsolat
+
+Az alkalmazás a környezeti változók alapján építi fel a PostgreSQL kapcsolatot.  
+A Neon által biztosított értékek például a következők:
+
+~~~env
+PGHOST='ep-winter-flower-ag0v0vhc-pooler.c-2.eu-central-1.aws.neon.tech'
+PGDATABASE='neondb'
+PGUSER='neondb_owner'
+PGPASSWORD='***************'
+PGSSLMODE='require'
+PGCHANNELBINDING='require'
+~~~
+
+Ezekből áll össze a Flask által használt connection string:
+
+~~~text
+postgres://<USER>:<PASSWORD>@<HOST>:5432/neondb?sslmode=require
+~~~
+
+### SSL használat
+
+A Neon megköveteli az SSL alapú kapcsolódást. Ennek hiányában a kliens `Connection failed (SSL required)` hibát ad.
+
+---
+
+## Kapcsolódás fejlesztői eszközökkel
+
+A fejlesztők a saját gépükről közvetlenül csatlakozhatnak az adatbázishoz bármely PostgreSQL-kompatibilis eszközzel.
+
+### VS Code – SQLTools beállítás
+
+| Mező             | Példa érték                                                   |
+| :--------------- | :------------------------------------------------------------ |
+| Connection name  | `neon-szabadsag-db`                                           |
+| Server address   | `ep-winter-flower-ag0v0vhc-pooler.c-2.eu-central-1.aws.neon.tech` |
+| Port             | `5432`                                                        |
+| Database         | `neondb`                                                      |
+| Username         | `neondb_owner`                                                |
+| Password         | a `PGPASSWORD` értéke                                         |
+| SSL              | `require` / `enabled`                                         |
+
+### DBeaver beállítás
+
+- **New Connection → PostgreSQL**
+- `Host`: Neon host címe
+- `SSL` fül → „Require” mód
+- **Test Connection** → sikeres kapcsolat esetén zöld pipát jelez
+
+---
+
+## Adatbázis Sémája
+
+Az alkalmazás két fő táblát és egy nézetet használ a szabadságkezelés megvalósítására.
+
+### 1. `app_user` – Felhasználók
+
+A felhasználók alapadatait és az éves szabadságkeretet tárolja.
+
+~~~sql
+CREATE TABLE app_user (
+    id                 BIGSERIAL PRIMARY KEY,
+    unique_key         VARCHAR(50)  NOT NULL UNIQUE,
+    email              VARCHAR(255) NOT NULL UNIQUE,
+    password_hash      TEXT         NOT NULL,
+    full_name          VARCHAR(255),
+    base_vacation_days INTEGER      NOT NULL DEFAULT 0,
+    created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+~~~
+
+- `unique_key`: belső azonosító (pl. `UKEY-001`)
+- `password_hash`: jelenleg egyszerű jelszó (fejlesztéshez), élesben bcrypt lenne
+- `base_vacation_days`: éves induló szabadságkeret
+
+### 2. `vacation_entry` – Kivett szabadságok
+
+Minden igényelt szabadság külön rekordként kerül rögzítésre.
+
+~~~sql
+CREATE TABLE vacation_entry (
+    id              BIGSERIAL PRIMARY KEY,
+    user_id         BIGINT      NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
+    vacation_date   DATE        NOT NULL,
+    days            INTEGER     NOT NULL DEFAULT 1,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+~~~
+
+- `user_id`: hivatkozás az `app_user` táblára  
+- `days`: a szabadság időtartama (napok száma)
+
+### 3. `v_user_vacation_balance` – Szabadságegyenleg nézet
+
+A nézet kiszámítja a felhasználók aktuális szabadságkeretét.
+
+~~~sql
+CREATE VIEW v_user_vacation_balance AS
+SELECT
+    u.id,
+    u.unique_key,
+    u.email,
+    u.full_name,
+    u.base_vacation_days,
+    COALESCE(SUM(ve.days), 0) AS used_days,
+    u.base_vacation_days - COALESCE(SUM(ve.days), 0) AS remaining_days
+FROM app_user u
+LEFT JOIN vacation_entry ve ON ve.user_id = u.id
+GROUP BY u.id, u.unique_key, u.email, u.full_name, u.base_vacation_days;
+~~~
+
+---
+
+## Seed Adatok
+
+Fejlesztési és tesztelési célokra az adatbázis előre feltöltött rekordokat tartalmaz.
+
+### Felhasználók (`app_user`)
+
+~~~sql
+INSERT INTO app_user (unique_key, email, password_hash, full_name, base_vacation_days)
+VALUES
+    ('UKEY-001', 'anna.kovacs@example.com', 'jelszo123', 'Kovács Anna', 25),
+    ('UKEY-002', 'peti.nagy@example.com', 'titok987',  'Nagy Péter', 22),
+    ('UKEY-003', 'szabistamas@example.com', 'alma2024', 'Szabó Tamás', 30),
+    ('UKEY-004', 'horvath.eva@example.com', 'password1','Horváth Éva', 26);
+~~~
+
+### Szabadság-bejegyzések (`vacation_entry`)
+
+~~~sql
+-- Kovács Anna
+INSERT INTO vacation_entry (user_id, vacation_date, days)
+VALUES
+    ((SELECT id FROM app_user WHERE email='anna.kovacs@example.com'), DATE '2025-03-14', 1),
+    ((SELECT id FROM app_user WHERE email='anna.kovacs@example.com'), DATE '2025-04-02', 1),
+    ((SELECT id FROM app_user WHERE email='anna.kovacs@example.com'), DATE '2025-05-10', 2);
+
+-- Nagy Péter
+INSERT INTO vacation_entry (user_id, vacation_date, days)
+VALUES
+    ((SELECT id FROM app_user WHERE email='peti.nagy@example.com'), DATE '2025-02-21', 1),
+    ((SELECT id FROM app_user WHERE email='peti.nagy@example.com'), DATE '2025-06-07', 2);
+
+-- Szabó Tamás
+INSERT INTO vacation_entry (user_id, vacation_date, days)
+VALUES
+    ((SELECT id FROM app_user WHERE email='szabistamas@example.com'), DATE '2025-07-01', 3),
+    ((SELECT id FROM app_user WHERE email='szabistamas@example.com'), DATE '2025-08-15', 1);
+
+-- Horváth Éva
+INSERT INTO vacation_entry (user_id, vacation_date, days)
+VALUES
+    ((SELECT id FROM app_user WHERE email='horvath.eva@example.com'), DATE '2025-01-03', 1),
+    ((SELECT id FROM app_user WHERE email='horvath.eva@example.com'), DATE '2025-03-28', 1),
+    ((SELECT id FROM app_user WHERE email='horvath.eva@example.com'), DATE '2025-09-09', 2);
+~~~
+
+---
+
+## Backend által használt lekérdezések
+
+### Regisztráció
+
+~~~sql
+INSERT INTO app_user (unique_key, email, password_hash, full_name, base_vacation_days)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id;
+~~~
+
+### Bejelentkezés
+
+~~~sql
+SELECT id, password_hash
+FROM app_user
+WHERE email = $1;
+~~~
+
+### Szabadság-egyenleg lekérése
+
+~~~sql
+SELECT remaining_days
+FROM v_user_vacation_balance
+WHERE id = $1;
+~~~
+
+### Szabadság igénylése
+
+~~~sql
+INSERT INTO vacation_entry (user_id, vacation_date, days)
+VALUES ($1, $2, $3)
+RETURNING id;
+~~~
+
+### Kivett szabadságok listázása
+
+~~~sql
+SELECT vacation_date, days, created_at
+FROM vacation_entry
+WHERE user_id = $1
+ORDER BY vacation_date DESC;
+~~~
+
+---
+
+## Megjegyzések
+
+- **Password-hash mező:** jelenleg egyszerű szöveg a fejlesztés megkönnyítése érdekében; élesben bcrypt hash-t kell használni.  
+- **Nézet (`VIEW`):** a frontendnek / web API-nak megkönnyíti a maradékszabadság számítását.  
+- **Külső kulcsok:** a `vacation_entry` rekordok automatikusan törlődnek, ha a hozzá tartozó felhasználó törlődik (`ON DELETE CASCADE`).
