@@ -162,3 +162,57 @@ A szabadság hozzáadásakor és módosításakor az alkalmazás automatikusan e
 
 **Szabadságok nyilvántartása**
 Minden szabadság bevételezésekor rögzítésre kerül a kezdő dátum és az igénybe vett napok száma. Az adatok tartósan tárolódnak az adatbázisban, így később lekérdezhetők és módosíthatók.
+
+---
+
+# Unittest
+
+A Flask alapú szabadságkezelő rendszer automatizált tesztjének megvalósítása ***unittest*** segítségével. A tesztek célja az üzleti logika (regisztráció, belépés, szabadságok kezelése) ellenőrzése izolált környezetben.
+
+## Teszt környezet
+
+Mivel izolált környezetben dolgozunk, a teszteket nem a production adatbázison végezzük (Neon PostgreSQL), hanem egy ideiglenes memóriában futó SQLite adatbázist használunk.
+
+### Működési elv
+A rendszer a ***FLASK_ENV*** környezeti változó alapján dönti el, melyik adatbázishoz csatlakozzon.
+
+- **Production mód**: Normál futás esetén, ha a környezeti változó nincs beállítva (vagy nem 'testing'), az alkalmazés a Neon PostgreSQL-hez csatlakozik.
+- **Testing mód**: A tesztfájl (***test.py***) beállítja az ***os.envrion['FLASK_ENV'] = 'testing'*** értéket. Ezt a main érzékeli és átvált ***sqlite:///:memory:*** módba.
+
+### Életciklus
+
+Minden egyes teszteset (test case) teljesen tiszta lappal indul:
+
+- **setUp (Előkészítés):** Lérehoz egy új alkalmazás-kontextust és egy üres adatbázis sémát (***db.create.all()***).
+- **tearDown (Takarítás):** A teszt végén törli az adatbázis tartalmát (***db.drop.all()***) és lezárja a kapcsolatot, hogy az egyik teszt adatai ne zavarják a következőt.
+
+## Tesztesetek leírása (Test cases)
+
+A 'TestVacationApp' osztály az alábbi funkciókat ellenőrzi:
+
+### Felhasználókezelés (User Management)
+
+| Teszt Függvény | Leírás | Elvárt Eredmény |
+| :--- | :--- | :--- |
+| `test_register_user` | Új felhasználó regisztrációja valid adatokkal. Ellenőrzi az `UKEY` (Unique Key) automatikus generálását (pl. UKEY-001). | **201 Created**, a felhasználó bekerül az adatbázisba. |
+| `test_register_duplicate_email` | Regisztrációs kísérlet olyan email címmel, ami már létezik a rendszerben. | **400 Bad Request**, hibaüzenet visszaadása. |
+| `test_login_success` | Bejelentkezés helyes email és jelszó párossal. | **200 OK**, sikeres belépés üzenet. |
+| `test_login_failure` | Bejelentkezés helyes email címmel, de hibás jelszóval. | **401 Unauthorized**, hibaüzenet. |
+
+### Szabadságok Kezelése (Vacation Logic)
+
+| Teszt Függvény | Leírás | Elvárt Eredmény |
+| :--- | :--- | :--- |
+| `test_add_vacation_success` | Szabadság igénylése, amennyiben a kért napok száma nem lépi túl a keretet. | **201 Created**, a szabadság rögzítésre kerül. |
+| `test_add_vacation_exceeds_limit` | Olyan szabadság igénylése, amely meghaladná a felhasználó éves keretét (pl. 20 napból 21 igénylése). | **400 Bad Request**, a tranzakció elutasítva. |
+| `test_get_vacations_calculation` | A szabadságok összegzésének ellenőrzése. Két külön szabadság (pl. 5 nap + 3 nap) hozzáadása után lekéri a státuszt. | **200 OK**, a válaszban: `used: 8`, `available: 12`. |
+| `test_delete_vacation` | Egy meglévő szabadságigénylés törlése ID alapján. | **200 OK**, az adatbázisból eltűnik a bejegyzés. |
+| `test_modify_vacation_success` | Meglévő szabadság módosítása (pl. 5 napról 10 napra növelés). | **200 OK**, a napok száma frissül, az összegzés újraszámolódik. |
+
+
+## Megjegyzések
+
+- **LegacyAPIWarning:** A futtatás előfordulhatnak **LegacyAPIWarning** figyelmeztetések. Ez azért van, mert a kód a régebbi **Model.query.get()** (pl. **Vacation.query.get()** ) szintaxist használja, míg az új SQLAlchemy 2.0 a **db.session.get()**-et preferálja. Ez **nem** hiba, a tesztek ettől függetlenül helyesen működnek.
+- **Path Setup:** A 'test.py' elején található **sys.path.append** biztosítja, hogy a teszt megtalálja a **main.py**-t, még akkor is, ha a könyvtárszerkezet vagy a futtatási hely eltérő.
+
+---
